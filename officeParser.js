@@ -7,13 +7,15 @@ const rimraf = require('rimraf');
 // #region textFetchFromWord
 
 var myTextWord = [];
+var myTextWordPage = [];
+
 var decompressLocation = "officeDist";
 var outputToConsoleWhenRequired = true;     // Default is set to true to let the user identify source of an error in node terminal
 
 async function scanForTextWord(result) {
     if (Array.isArray(result)) {
         for (var i = 0; i < result.length; i++) {
-            if (typeof(result[i]) == "string" && result[i] != "") {
+            if (typeof(result[i]) == "string"){// && result[i] != "") {
                 await myTextWord.push(result[i]);
             }
             else {
@@ -26,8 +28,13 @@ async function scanForTextWord(result) {
         for (var property in result) {
             if (result.hasOwnProperty(property)) {
                 if (typeof(result[property]) == "string") {
-                    if ((property == "w:t" || property == "_") && result[property] != "") {
+                    if ((property == "w:t" || property == "_")){//} && result[property] != "") {
                         await myTextWord.push(result[property]);
+                    }else if(property === 'w:type' && result[property] === 'page'){
+                        myTextWordPage.push(myTextWord);
+                        myTextWord = [];
+                    }else{
+                        //console.log(property)
                     }
                 }
                 else {
@@ -44,6 +51,7 @@ var parseWord = async function (filename, callback, deleteOfficeDist = true) {
         try {
             decompress(filename, decompressLocation).then(files => {
                 myTextWord = [];
+                myTextWordPage = [];
                 if (fs.existsSync(decompressLocation + "/word/document.xml")) {
                     fs.readFile(decompressLocation + '/word/document.xml', 'utf8', function (err,data) {
                         if (err) {
@@ -52,8 +60,12 @@ var parseWord = async function (filename, callback, deleteOfficeDist = true) {
                         }
                         xml2js.parseString(data, async function (err, result) {
                             await scanForTextWord(result);
+                            if(myTextWord.length > 0){
+                                myTextWordPage.push(myTextWord)
+                                myTextWord = [];
+                            }
     
-                            callback(myTextWord.join(" "), undefined);
+                            callback(myTextWordPage/*.join(" ")*/, undefined);
                             if (deleteOfficeDist == true) {
                                 rimraf(decompressLocation, function () {});
                             }
